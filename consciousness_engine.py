@@ -113,11 +113,16 @@ class AttentionMechanism:
 class MemorySystem:
     """Memory system with importance weighting and pruning"""
     
+    # Scoring weights for retrieval
+    TAG_OVERLAP_WEIGHT = 0.6
+    SALIENCE_WEIGHT = 0.4
+    MIN_QUERY_TAGS = 1  # Minimum to prevent division by zero
+    
     def __init__(self, capacity: int = 1000, prune_threshold: float = 0.1):
         self.capacity = capacity
         self.prune_threshold = prune_threshold
         self.memories: List[MemoryEntry] = []
-        self.content_hashes = set()
+        self.content_hashes = {}  # Maps hash -> memory for O(1) duplicate detection
         self.decay_rate = 0.1
     
     def _compute_content_hash(self, content: Any) -> str:
@@ -127,17 +132,15 @@ class MemorySystem:
         
     def add_memory(self, content: Any, importance: float, tags: List[str] = None):
         """Add new memory with importance score"""
-        # Check for duplicates using SHA-256 content hash
+        # Check for duplicates using SHA-256 content hash with O(1) lookup
         content_hash = self._compute_content_hash(content)
         if content_hash in self.content_hashes:
-            # Update existing memory instead
-            for mem in self.memories:
-                mem_hash = self._compute_content_hash(mem.content)
-                if mem_hash == content_hash:
-                    mem.importance = max(mem.importance, importance)
-                    mem.access_count += 1
-                    mem.last_access = time.time()
-                    return
+            # Update existing memory directly via hash map
+            mem = self.content_hashes[content_hash]
+            mem.importance = max(mem.importance, importance)
+            mem.access_count += 1
+            mem.last_access = time.time()
+            return
         
         # Add new memory
         memory = MemoryEntry(
@@ -147,7 +150,7 @@ class MemorySystem:
             tags=tags or []
         )
         self.memories.append(memory)
-        self.content_hashes.add(content_hash)
+        self.content_hashes[content_hash] = memory  # Store reference for O(1) lookup
         
         # Prune if over capacity
         if len(self.memories) > self.capacity:
@@ -163,18 +166,20 @@ class MemorySystem:
         
         # Keep memories above threshold
         kept_memories = []
-        kept_hashes = set()
         
         for mem, salience in zip(self.memories, saliences):
             if salience >= self.prune_threshold or len(kept_memories) < self.capacity // 2:
                 kept_memories.append(mem)
-                mem_hash = self._compute_content_hash(mem.content)
-                kept_hashes.add(mem_hash)
         
         # Sort by salience and keep top entries
         kept_memories.sort(key=lambda m: m.get_salience(current_time, self.decay_rate), reverse=True)
         self.memories = kept_memories[:self.capacity]
-        self.content_hashes = kept_hashes
+        
+        # Rebuild hash map to stay consistent with kept memories
+        self.content_hashes = {}
+        for mem in self.memories:
+            mem_hash = self._compute_content_hash(mem.content)
+            self.content_hashes[mem_hash] = mem
     
     def retrieve_relevant(self, query_tags: List[str], k: int = 5) -> List[MemoryEntry]:
         """Retrieve k most relevant memories based on tags and salience"""
@@ -184,9 +189,9 @@ class MemorySystem:
         # Score memories by tag overlap and salience
         scores = []
         for mem in self.memories:
-            tag_overlap = len(set(mem.tags) & query_tags_set) / max(len(query_tags), 1)
+            tag_overlap = len(set(mem.tags) & query_tags_set) / max(len(query_tags), self.MIN_QUERY_TAGS)
             salience = mem.get_salience(current_time, self.decay_rate)
-            score = tag_overlap * 0.6 + salience * 0.4
+            score = tag_overlap * self.TAG_OVERLAP_WEIGHT + salience * self.SALIENCE_WEIGHT
             scores.append((mem, score))
             
             # Update access stats

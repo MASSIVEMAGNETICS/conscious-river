@@ -16,6 +16,9 @@ def simulate_cognitive_agent():
     Demonstrates the full consciousness pipeline
     """
     
+    # Display configuration
+    MEMORY_DISPLAY_LENGTH = 100  # Characters to show from memory content
+    
     print("=" * 70)
     print("CONSCIOUSNESS ENGINE - COGNITIVE AGENT SIMULATION")
     print("=" * 70)
@@ -154,7 +157,7 @@ def simulate_cognitive_agent():
         if state.get('memory_context', {}).get('relevant_memories'):
             print(f"\nRelevant Memories Retrieved: {len(state['memory_context']['relevant_memories'])}")
             for j, mem in enumerate(state['memory_context']['relevant_memories'][:3], 1):
-                mem_str = json.dumps(mem, indent=2)[:100] + "..."
+                mem_str = json.dumps(mem, indent=2)[:MEMORY_DISPLAY_LENGTH] + "..."
                 print(f"  {j}. {mem_str}")
         
         # Simulate processing time
@@ -195,7 +198,7 @@ def simulate_cognitive_agent():
         print(f"   Timestamp: {time.ctime(mem.timestamp)}")
         print(f"   Access Count: {mem.access_count}")
         print(f"   Tags: {mem.tags}")
-        print(f"   Content: {json.dumps(mem.content, indent=4)[:150]}...")
+        print(f"   Content: {json.dumps(mem.content, indent=4)[:MEMORY_DISPLAY_LENGTH]}...")
     
     print(f"\n{'=' * 70}")
     print("SIMULATION COMPLETE")
