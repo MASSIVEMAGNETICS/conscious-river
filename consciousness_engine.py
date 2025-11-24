@@ -25,11 +25,10 @@ class StreamData:
     def get_hash(self) -> str:
         """
         Generate content hash for deduplication
-        Note: Using MD5 for content deduplication only (not for security).
-        This is acceptable as we only need fast collision-resistant hashing.
+        Using SHA-256 for better collision resistance
         """
         content_str = json.dumps(self.data, sort_keys=True)
-        return hashlib.md5(content_str.encode()).hexdigest()
+        return hashlib.sha256(content_str.encode()).hexdigest()
 
 
 @dataclass
@@ -118,12 +117,12 @@ class MemorySystem:
         
     def add_memory(self, content: Any, importance: float, tags: List[str] = None):
         """Add new memory with importance score"""
-        # Check for duplicates using content hash (MD5 for speed, not security)
-        content_hash = hashlib.md5(json.dumps(content, sort_keys=True).encode()).hexdigest()
+        # Check for duplicates using SHA-256 content hash
+        content_hash = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
         if content_hash in self.content_hashes:
             # Update existing memory instead
             for mem in self.memories:
-                mem_hash = hashlib.md5(json.dumps(mem.content, sort_keys=True).encode()).hexdigest()
+                mem_hash = hashlib.sha256(json.dumps(mem.content, sort_keys=True).encode()).hexdigest()
                 if mem_hash == content_hash:
                     mem.importance = max(mem.importance, importance)
                     mem.access_count += 1
@@ -159,7 +158,7 @@ class MemorySystem:
         for mem, salience in zip(self.memories, saliences):
             if salience >= self.prune_threshold or len(kept_memories) < self.capacity // 2:
                 kept_memories.append(mem)
-                mem_hash = hashlib.md5(json.dumps(mem.content, sort_keys=True).encode()).hexdigest()
+                mem_hash = hashlib.sha256(json.dumps(mem.content, sort_keys=True).encode()).hexdigest()
                 kept_hashes.add(mem_hash)
         
         # Sort by salience and keep top entries
