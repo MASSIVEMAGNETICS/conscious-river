@@ -51,7 +51,12 @@ class MemoryEntry:
         """Calculate current salience based on importance, recency, and access"""
         time_decay = np.exp(-decay_rate * (current_time - self.timestamp))
         access_boost = min(1.0, self.access_count * self.ACCESS_BOOST_FACTOR)
-        recency_boost = np.exp(-decay_rate * (current_time - self.last_access))
+        
+        # Only apply recency boost if memory has been accessed
+        if self.last_access > 0:
+            recency_boost = np.exp(-decay_rate * (current_time - self.last_access))
+        else:
+            recency_boost = 0.0
         
         return (self.importance * time_decay * self.DECAY_WEIGHT + 
                 access_boost * self.ACCESS_WEIGHT + 
@@ -114,15 +119,20 @@ class MemorySystem:
         self.memories: List[MemoryEntry] = []
         self.content_hashes = set()
         self.decay_rate = 0.1
+    
+    def _compute_content_hash(self, content: Any) -> str:
+        """Helper method to compute SHA-256 hash of content"""
+        content_str = json.dumps(content, sort_keys=True)
+        return hashlib.sha256(content_str.encode()).hexdigest()
         
     def add_memory(self, content: Any, importance: float, tags: List[str] = None):
         """Add new memory with importance score"""
         # Check for duplicates using SHA-256 content hash
-        content_hash = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
+        content_hash = self._compute_content_hash(content)
         if content_hash in self.content_hashes:
             # Update existing memory instead
             for mem in self.memories:
-                mem_hash = hashlib.sha256(json.dumps(mem.content, sort_keys=True).encode()).hexdigest()
+                mem_hash = self._compute_content_hash(mem.content)
                 if mem_hash == content_hash:
                     mem.importance = max(mem.importance, importance)
                     mem.access_count += 1
@@ -158,7 +168,7 @@ class MemorySystem:
         for mem, salience in zip(self.memories, saliences):
             if salience >= self.prune_threshold or len(kept_memories) < self.capacity // 2:
                 kept_memories.append(mem)
-                mem_hash = hashlib.sha256(json.dumps(mem.content, sort_keys=True).encode()).hexdigest()
+                mem_hash = self._compute_content_hash(mem.content)
                 kept_hashes.add(mem_hash)
         
         # Sort by salience and keep top entries
@@ -169,11 +179,12 @@ class MemorySystem:
     def retrieve_relevant(self, query_tags: List[str], k: int = 5) -> List[MemoryEntry]:
         """Retrieve k most relevant memories based on tags and salience"""
         current_time = time.time()
+        query_tags_set = set(query_tags)  # Convert once for efficiency
         
         # Score memories by tag overlap and salience
         scores = []
         for mem in self.memories:
-            tag_overlap = len(set(mem.tags) & set(query_tags)) / max(len(query_tags), 1)
+            tag_overlap = len(set(mem.tags) & query_tags_set) / max(len(query_tags), 1)
             salience = mem.get_salience(current_time, self.decay_rate)
             score = tag_overlap * 0.6 + salience * 0.4
             scores.append((mem, score))
