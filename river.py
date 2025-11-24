@@ -234,6 +234,9 @@ class HoloEntry:
 
 
 # Victor Cognitive River Code as DNA string
+# Note: Using triple single-quotes (''') instead of triple double-quotes (""")
+# because the embedded Python code contains docstrings with triple double-quotes,
+# which would cause syntax errors if we used """ for the outer string.
 victor_code = '''
 # FILE: victor_cognitive_river_complete.py
 # VERSION: vCOGNITIVE-RIVER-1.1-UPGRADED
