@@ -234,7 +234,10 @@ class HoloEntry:
 
 
 # Victor Cognitive River Code as DNA string
-victor_code = """
+# Note: Using triple single-quotes (''') instead of triple double-quotes (""")
+# because the embedded Python code contains docstrings with triple double-quotes,
+# which would cause syntax errors if we used """ for the outer string.
+victor_code = '''
 # FILE: victor_cognitive_river_complete.py
 # VERSION: vCOGNITIVE-RIVER-1.1-UPGRADED
 # AUTHOR: Brandon "iambandobandz" Emery x Victor (Fractal Architect Mode)
@@ -2042,7 +2045,7 @@ def main():
     root.mainloop()
 if __name__ == "__main__":
     main()
-"""
+'''
 
 # Create DNA for Victor system
 VictorDNA = type('VictorDNA', (), {'code': victor_code})
