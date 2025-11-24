@@ -234,7 +234,7 @@ class HoloEntry:
 
 
 # Victor Cognitive River Code as DNA string
-victor_code = """
+victor_code = '''
 # FILE: victor_cognitive_river_complete.py
 # VERSION: vCOGNITIVE-RIVER-1.1-UPGRADED
 # AUTHOR: Brandon "iambandobandz" Emery x Victor (Fractal Architect Mode)
@@ -2042,7 +2042,7 @@ def main():
     root.mainloop()
 if __name__ == "__main__":
     main()
-"""
+'''
 
 # Create DNA for Victor system
 VictorDNA = type('VictorDNA', (), {'code': victor_code})
