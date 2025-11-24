@@ -23,7 +23,11 @@ class StreamData:
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def get_hash(self) -> str:
-        """Generate content hash for deduplication"""
+        """
+        Generate content hash for deduplication
+        Note: Using MD5 for content deduplication only (not for security).
+        This is acceptable as we only need fast collision-resistant hashing.
+        """
         content_str = json.dumps(self.data, sort_keys=True)
         return hashlib.md5(content_str.encode()).hexdigest()
 
@@ -38,17 +42,30 @@ class MemoryEntry:
     last_access: float = 0.0
     tags: List[str] = field(default_factory=list)
     
+    # Salience calculation parameters
+    DECAY_WEIGHT = 1.0
+    ACCESS_WEIGHT = 0.3
+    RECENCY_WEIGHT = 0.2
+    ACCESS_BOOST_FACTOR = 0.1
+    
     def get_salience(self, current_time: float, decay_rate: float = 0.1) -> float:
         """Calculate current salience based on importance, recency, and access"""
         time_decay = np.exp(-decay_rate * (current_time - self.timestamp))
-        access_boost = min(1.0, self.access_count * 0.1)
+        access_boost = min(1.0, self.access_count * self.ACCESS_BOOST_FACTOR)
         recency_boost = np.exp(-decay_rate * (current_time - self.last_access))
         
-        return self.importance * time_decay + access_boost * 0.3 + recency_boost * 0.2
+        return (self.importance * time_decay * self.DECAY_WEIGHT + 
+                access_boost * self.ACCESS_WEIGHT + 
+                recency_boost * self.RECENCY_WEIGHT)
 
 
 class AttentionMechanism:
     """Attention mechanism for prioritizing streams"""
+    
+    # Configuration parameters
+    DEFAULT_TEMPERATURE = 1.0
+    CONTEXT_BOOST_WEIGHT = 0.3
+    EMA_ALPHA = 0.3  # Smoothing factor for attention transitions
     
     def __init__(self, num_streams: int, attention_window: int = 10):
         self.num_streams = num_streams
@@ -63,19 +80,19 @@ class AttentionMechanism:
         Uses softmax with temperature for smooth transitions
         """
         # Temperature parameter for attention sharpness
-        temperature = 1.0
+        temperature = self.DEFAULT_TEMPERATURE
         
         # Add context modulation if provided
         if context:
             context_boost = np.array([context.get(name, 0.0) for name in self.stream_names])
-            stream_importances = stream_importances + context_boost * 0.3
+            stream_importances = stream_importances + context_boost * self.CONTEXT_BOOST_WEIGHT
         
         # Apply softmax with temperature
         exp_importances = np.exp(stream_importances / temperature)
         attention_weights = exp_importances / np.sum(exp_importances)
         
         # Smooth transition using exponential moving average
-        alpha = 0.3
+        alpha = self.EMA_ALPHA
         self.attention_weights = (1 - alpha) * self.attention_weights + alpha * attention_weights
         
         # Store in history
@@ -101,7 +118,7 @@ class MemorySystem:
         
     def add_memory(self, content: Any, importance: float, tags: List[str] = None):
         """Add new memory with importance score"""
-        # Check for duplicates
+        # Check for duplicates using content hash (MD5 for speed, not security)
         content_hash = hashlib.md5(json.dumps(content, sort_keys=True).encode()).hexdigest()
         if content_hash in self.content_hashes:
             # Update existing memory instead
@@ -262,6 +279,10 @@ class ConsciousnessEngine:
     Integrates multiple sensory inputs, attention, memory, pruning, and merging
     """
     
+    # Configuration parameters
+    IMPORTANT_MEMORY_THRESHOLD = 0.6  # Threshold for storing in memory
+    PRUNING_INTERVAL = 10  # Process cycles between pruning operations
+    
     def __init__(self, stream_names: List[str], 
                  memory_capacity: int = 1000,
                  system_instructions: str = ""):
@@ -303,7 +324,7 @@ class ConsciousnessEngine:
         self.current_streams[stream_name] = stream_data
         
         # Add to memory if important enough
-        if importance > 0.6:
+        if importance > self.IMPORTANT_MEMORY_THRESHOLD:
             tags = [stream_name] + metadata.get("tags", []) if metadata else [stream_name]
             self.memory.add_memory(data, importance, tags)
     
@@ -347,7 +368,7 @@ class ConsciousnessEngine:
         merged_state = self.merger.merge_streams(stream_list, attention_weights, memory_context)
         
         # Step 5: Prune old/irrelevant data from memory periodically
-        if self.process_count % 10 == 0:
+        if self.process_count % self.PRUNING_INTERVAL == 0:
             old_count = len(self.memory.memories)
             self.memory.prune_memories()
             new_count = len(self.memory.memories)
