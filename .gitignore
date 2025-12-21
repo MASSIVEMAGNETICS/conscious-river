@@ -1,16 +1,4 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg
-*.egg-info
-dist/
-build/
-.DS_Store
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+```
+# Logs
+*.log
+```
